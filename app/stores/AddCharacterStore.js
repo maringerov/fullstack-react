@@ -4,15 +4,16 @@ import AddCharacterActions from '../actions/AddCharacterActions';
 class AddCharacterStore {
   constructor() {
     this.bindActions(AddCharacterActions);
-    this.nameValidationState = '';
-    this.genderValidationState = '';
     this.name = '';
     this.gender = '';
     this.helpBlock = '';
+    this.nameValidationState = '';
+    this.genderValidationState = '';
   }
 
   onAddCharacterSuccess(successMessage) {
     this.nameValidationState = 'has-success';
+    this.helpBlock = successMessage;
   }
 
   onAddCharacterFail(errorMessage) {
@@ -33,7 +34,7 @@ class AddCharacterStore {
 
   onInvalidName() {
     this.nameValidationState = 'has-error';
-    this.helpBlock = 'Please enter a character name';
+    this.helpBlock = 'Please enter a character name.';
   }
 
   onInvalidGender() {

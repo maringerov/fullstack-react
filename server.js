@@ -1,33 +1,36 @@
-var express = require('express');
 var path = require('path');
-var logger = require('morgan');
+var express = require('express');
 var bodyParser = require('body-parser');
+var compression = require('compression');
+var favicon = require('serve-favicon');
+var logger = require('morgan');
 var async = require('async');
+var colors = require('colors');
+var mongoose = require('mongoose');
 var request = require('request');
+var React = require('react');
+var Router = require('react-router');
+var swig  = require('swig');
 var xml2js = require('xml2js');
 var _ = require('underscore');
 
-var swig = require('swig');
-var React = require('react');
-var Router = require('react-router');
-var routes = require('./app/routes');
-
-var mongoose = require('mongoose');
-var Character = require('./models/character');
-
 var config = require('./config');
-
-mongoose.connect(config.database);
-mongoose.connection.on('error', function() {
-  console.info('Error: Could not connect to MongoDB. Did you forget to run `mongod`?');
-});
+var routes = require('./app/routes');
+var Character = require('./models/character');
 
 var app = express();
 
+mongoose.connect(config.database);
+mongoose.connection.on('error', function() {
+  console.info('Error: Could not connect to MongoDB. Did you forget to run `mongod`?'.red);
+});
+
 app.set('port', process.env.PORT || 8888);
+app.use(compression());
 app.use(logger('dev'));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(favicon(path.join(__dirname, 'public', 'favicon.png')));
 app.use(express.static(path.join(__dirname, 'public')));
 
 /**
@@ -70,6 +73,7 @@ app.get('/api/characters', function(req, res, next) {
         });
     });
 });
+
 
 /**
  * PUT /api/characters
@@ -135,6 +139,97 @@ app.put('/api/characters', function(req, res, next) {
         res.status(200).end();
       });
     });
+});
+
+/**
+ * GET /api/characters/shame
+ * Returns 100 lowest ranked characters.
+ */
+app.get('/api/characters/shame', function(req, res, next) {
+  Character
+    .find()
+    .sort('-losses')
+    .limit(100)
+    .exec(function(err, characters) {
+      if (err) return next(err);
+      res.send(characters);
+    });
+});
+
+/**
+ * GET /api/characters/top
+ * Return 100 highest ranked characters. Filter by gender, race and bloodline.
+ */
+app.get('/api/characters/top', function(req, res, next) {
+  var params = req.query;
+  var conditions = {};
+
+  _.each(params, function(value, key) {
+    conditions[key] = new RegExp('^' + value + '$', 'i');
+  });
+
+  Character
+    .find(conditions)
+    .sort('-wins')
+    .limit(100)
+    .exec(function(err, characters) {
+      if (err) return next(err);
+
+      characters.sort(function(a, b) {
+        if (a.wins / (a.wins + a.losses) < b.wins / (b.wins + b.losses)) { return 1; }
+        if (a.wins / (a.wins + a.losses) > b.wins / (b.wins + b.losses)) { return -1; }
+        return 0;
+      });
+
+      res.send(characters);
+    });
+});
+
+/**
+ * GET /api/characters/count
+ * Returns the total number of characters.
+ */
+app.get('/api/characters/count', function(req, res, next) {
+  Character.count({}, function(err, count) {
+    if (err) return next(err);
+    res.send({ count: count });
+  });
+});
+
+/**
+ * GET /api/characters/search
+ * Looks up a character by name. (case-insensitive)
+ */
+app.get('/api/characters/search', function(req, res, next) {
+  var characterName = new RegExp(req.query.name, 'i');
+
+  Character.findOne({ name: characterName }, function(err, character) {
+    if (err) return next(err);
+
+    if (!character) {
+      return res.status(404).send({ message: 'Character not found.' });
+    }
+
+    res.send(character);
+  });
+});
+
+/**
+ * GET /api/characters/:id
+ * Returns detailed character information.
+ */
+app.get('/api/characters/:id', function(req, res, next) {
+  var id = req.params.id;
+
+  Character.findOne({ characterId: id }, function(err, character) {
+    if (err) return next(err);
+
+    if (!character) {
+      return res.status(404).send({ message: 'Character not found.' });
+    }
+
+    res.send(character);
+  });
 });
 
 /**
@@ -204,126 +299,6 @@ app.post('/api/characters', function(req, res, next) {
       });
     }
   ]);
-});
-
-/**
- * GET /api/characters/count
- * Returns the total number of characters.
- */
-app.get('/api/characters/count', function(req, res, next) {
-  Character.count({}, function(err, count) {
-    if (err) return next(err);
-    res.send({ count: count });
-  });
-});
-
-/**
- * GET /api/characters/search
- * Looks up a character by name. (case-insensitive)
- */
-app.get('/api/characters/search', function(req, res, next) {
-  var characterName = new RegExp(req.query.name, 'i');
-
-  Character.findOne({ name: characterName }, function(err, character) {
-    if (err) return next(err);
-
-    if (!character) {
-      return res.status(404).send({ message: 'Character not found.' });
-    }
-
-    res.send(character);
-  });
-});
-
-/**
- * GET /api/characters/:id
- * Returns detailed character information.
- */
-app.get('/api/characters/:id', function(req, res, next) {
-  var id = req.params.id;
-
-  Character.findOne({ characterId: id }, function(err, character) {
-    if (err) return next(err);
-
-    if (!character) {
-      return res.status(404).send({ message: 'Character not found.' });
-    }
-
-    res.send(character);
-  });
-});
-
-/**
- * GET /api/characters/top
- * Return 100 highest ranked characters. Filter by gender, race and bloodline.
- */
-app.get('/api/characters/top', function(req, res, next) {
-  var params = req.query;
-  var conditions = {};
-
-  _.each(params, function(value, key) {
-    conditions[key] = new RegExp('^' + value + '$', 'i');
-  });
-
-  Character
-    .find(conditions)
-    .sort('-wins') // Sort in descending order (highest wins on top)
-    .limit(100)
-    .exec(function(err, characters) {
-      if (err) return next(err);
-
-      // Sort by winning percentage
-      characters.sort(function(a, b) {
-        if (a.wins / (a.wins + a.losses) < b.wins / (b.wins + b.losses)) { return 1; }
-        if (a.wins / (a.wins + a.losses) > b.wins / (b.wins + b.losses)) { return -1; }
-        return 0;
-      });
-
-      res.send(characters);
-    });
-});
-
-/**
- * GET /api/characters/shame
- * Returns 100 lowest ranked characters.
- */
-app.get('/api/characters/shame', function(req, res, next) {
-  Character
-    .find()
-    .sort('-losses')
-    .limit(100)
-    .exec(function(err, characters) {
-      if (err) return next(err);
-      res.send(characters);
-    });
-});
-
-/**
- * POST /api/report
- * Reports a character. Character is removed after 4 reports.
- */
-app.post('/api/report', function(req, res, next) {
-  var characterId = req.body.characterId;
-
-  Character.findOne({ characterId: characterId }, function(err, character) {
-    if (err) return next(err);
-
-    if (!character) {
-      return res.status(404).send({ message: 'Character not found.' });
-    }
-
-    character.reports++;
-
-    if (character.reports > 4) {
-      character.remove();
-      return res.send({ message: character.name + ' has been deleted.' });
-    }
-
-    character.save(function(err) {
-      if (err) return next(err);
-      res.send({ message: character.name + ' has been reported.' });
-    });
-  });
 });
 
 /**
@@ -429,12 +404,90 @@ app.get('/api/stats', function(req, res, next) {
     });
 });
 
+
+/**
+ * POST /api/report
+ * Reports a character. Character is removed after 4 reports.
+ */
+app.post('/api/report', function(req, res, next) {
+  var characterId = req.body.characterId;
+
+  Character.findOne({ characterId: characterId }, function(err, character) {
+    if (err) return next(err);
+
+    if (!character) {
+      return res.status(404).send({ message: 'Character not found.' });
+    }
+
+    character.reports++;
+
+    if (character.reports > 4) {
+      character.remove();
+      return res.send({ message: character.name + ' has been deleted.' });
+    }
+
+    character.save(function(err) {
+      if (err) return next(err);
+      res.send({ message: character.name + ' has been reported.' });
+    });
+  });
+});
+
+app.post('/api/subscribe', function(req, res, next) {
+  var email = req.body.email;
+  var characterId = req.body.characterId;
+
+  if (!validator.isEmail(email)) {
+    return res.status(400).send('Invalid email address.');
+  }
+
+  if (!characterId) {
+    return res.status(400).send({ message: 'Character ID is missing.' });
+  }
+
+  Subscriber.findOne({ email: email }, function(err, subscriber) {
+    if (err) return next(err);
+
+    if (!subscriber) {
+      subscriber = new Subscriber();
+      subscriber.email = email;
+    }
+
+    if (_.contains(subscriber.characters, characterId)) {
+      return res.status(409).send({ message: 'You are already subscribed to this character.' });
+    }
+
+    subscriber.characters.push(characterId);
+
+    subscriber.save(function(err) {
+      if (err) return next(err);
+
+      var weeklyReport = agenda.schedule('Sunday at noon', 'send weekly report', { email: email, characterId: characterId });
+      weeklyReport.repeatEvery('1 week').save();
+      agenda.start();
+
+      res.status(200).end();
+    });
+  });
+});
+
+app.post('/api/unsubscribe', function(req, res, next) {
+
+});
+
 app.use(function(req, res) {
   Router.run(routes, req.path, function(Handler) {
     var html = React.renderToString(React.createElement(Handler));
-    var page = swig.renderFile('views/index.html', {html: html});
+    var page = swig.renderFile('views/index.html', { html: html });
     res.send(page);
   });
+});
+
+
+app.use(function(err, req, res, next) {
+  console.log(err.stack.red);
+  res.status(err.status || 500);
+  res.send({ message: err.message });
 });
 
 /**

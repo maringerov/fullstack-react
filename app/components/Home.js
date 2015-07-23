@@ -1,6 +1,7 @@
+
 import React from 'react';
 import {Link} from 'react-router';
-import HomeStore from '../stores/HomeStore';
+import HomeStore from '../stores/HomeStore'
 import HomeActions from '../actions/HomeActions';
 
 class Home extends React.Component {
@@ -23,7 +24,7 @@ class Home extends React.Component {
     this.setState(state);
   }
 
-  handeClick(character) {
+  handleClick(character) {
     var winner = character.characterId;
     var loser = this.state.characters[1 - this.state.characters.indexOf(winner)].characterId;
     HomeActions.vote(winner, loser);

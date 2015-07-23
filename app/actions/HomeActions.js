@@ -10,7 +10,7 @@ class HomeActions {
   }
 
   getTwoCharacters() {
-    $.ajax({ url: '/api/characters'})
+    $.ajax({ url: '/api/characters' })
       .done(data => {
         this.actions.getTwoCharactersSuccess(data);
       })
@@ -22,7 +22,7 @@ class HomeActions {
   vote(winner, loser) {
     $.ajax({
       type: 'PUT',
-      url: '/api/characters',
+      url: '/api/characters' ,
       data: { winner: winner, loser: loser }
     })
       .done(() => {
