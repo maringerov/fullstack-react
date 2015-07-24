@@ -215,8 +215,8 @@ class Navbar extends React.Component {
   }
 }
 
-Navbar.contextTypes = {
-  router: React.PropTypes.func.isRequired
-}
+// Navbar.contextTypes = {
+//   router: React.PropTypes.func.isRequired
+// }
 
 export default Navbar;
