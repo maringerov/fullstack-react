@@ -16,6 +16,10 @@ var _ = require('underscore');
 
 var config = require('./config');
 var routes = require('./app/routes');
+
+var graffiti = require('@risingstack/graffiti');
+var graffitiMongoose = require('@risingstack/graffiti-mongoose');
+
 var Character = require('./models/character');
 
 var app = express();
@@ -24,6 +28,12 @@ mongoose.connect(config.database);
 mongoose.connection.on('error', function() {
   console.info('Error: Could not connect to MongoDB. Did you forget to run `mongod`?'.red);
 });
+
+app.use(graffiti.express({
+  prefix: '/graphql',
+  adapter: graffitiMongoose,
+  models: [Character]
+}));
 
 app.set('port', process.env.PORT || 8888);
 app.use(compression());

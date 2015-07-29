@@ -9,9 +9,11 @@
   "main": "server.js",
   "scripts": {
     "start": "babel-node server.js",
-    "watch": "nodemon --exec babel-node -- server.js"
+    "watch": "nodemon --exec babel-node -- --harmony server.js"
   },
   "dependencies": {
+    "@risingstack/graffiti": "^1.0.2",
+    "@risingstack/graffiti-mongoose": "^1.0.5",
     "alt": "^0.17.1",
     "async": "^1.4.0",
     "babel": "^5.6.23",
